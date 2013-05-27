@@ -11,13 +11,13 @@ class DAGTransform
   // Local transform data
   // This is relative to parent
   private PVector localPos;
-  private PVector localRot;
+  private float localRot;
   private PVector localScale;
   
   // World transform data
   // This is relative to origin
   private PVector worldPos;
-  private PVector worldRot;
+  private float worldRot;
   private PVector worldScale;
   
   // Center data
@@ -25,7 +25,7 @@ class DAGTransform
   
   
   DAGTransform(float wpX, float wpY, float wpZ,
-               float wrX, float wrY, float wrZ,
+               float wr,
                float wsX, float wsY, float wsZ,
                float cX, float cY, float cZ)
   {
@@ -36,7 +36,7 @@ class DAGTransform
     
     // Set world transform
     worldPos = new PVector(wpX, wpY, wpZ);
-    worldRot = new PVector(wrX, wrY, wrZ);
+    worldRot = wr;
     worldScale = new PVector(wsX, wsY, wsZ);
     center = new PVector(cX, cY, cZ);
     
@@ -61,6 +61,45 @@ class DAGTransform
   // moveWorld
   
   
+  public void moveLocal(float x, float y, float z)
+  // Move the node in local space
+  {
+    localPos.add( new PVector(x, y, z) );
+    updateWorld();
+  }
+  // moveLocal
+  public void moveLocal(float x, float y)
+  // Helper
+  {
+    moveLocal(x, y, 0);
+  }
+  // moveLocal
+  
+  
+  public void rotate(float r)
+  // Rotate the node by r radians - this affects both world and local space
+  {
+    worldRot += r;
+    updateLocal();
+  }
+  // rotate
+  
+  
+  public void scale(float x, float y, float z)
+  // Scale the node by *xyz - this affects both world and local space
+  {
+    worldScale.set(worldScale.x * x, worldScale.y * y, worldScale.z * z);
+    updateLocal();
+  }
+  // scale
+  public void scale(float s)
+  // Helper
+  {
+    scale(s, s, s);
+  }
+  // scale
+  
+  
   public void setParent(DAGTransform p)
   // Sets up a parent relationship
   {
@@ -77,7 +116,7 @@ class DAGTransform
       
       parent.addChild(this);
       // Update transforms
-      /**/
+      updateLocal();
     }
   }
   // setParent
@@ -86,9 +125,6 @@ class DAGTransform
   public void setParentToWorld()
   // Puts the node into world space
   {
-    // Update transforms
-    /**/
-    
     // Update relationships
     if(parent != null)
     {
@@ -96,6 +132,9 @@ class DAGTransform
     }
     parent = null;
     hasParent = false;
+    
+    // Update transforms
+    updateLocal();
   }
   // setParentToWorld
   
@@ -113,6 +152,7 @@ class DAGTransform
       {
         // That is, it's not already a child
         children.add(c);
+        c.updateLocal();
       }
       
       // Ascertain parent relationship
@@ -134,6 +174,7 @@ class DAGTransform
   // Removes a child from the node
   {
     children.remove(c);
+    c.updateLocal();
   }
   // removeChild
   
@@ -177,7 +218,7 @@ class DAGTransform
   {
     // Get world transforms of parent
     PVector pwPos = new PVector(0,0,0);
-    PVector pwRot = new PVector(0,0,0);
+    float pwRot = 0;
     PVector pwScale = new PVector(1,1,1);
     if( parent != null )
     {
@@ -192,27 +233,13 @@ class DAGTransform
     float tempPosY = tempPos.y;
     float tempPosZ = tempPos.z;
     
-    // Unrotate (using reverse YXZ)
-    // Unrotate Z
-    float thetaZ = atan2(tempPosY, tempPosX);
-    float lenZ = sqrt(tempPosX * tempPosX + tempPosY * tempPosY);
-    thetaZ -= pwRot.z;
-    tempPosX = lenZ * cos(thetaZ);
-    tempPosY = lenZ * sin(thetaZ);
-    // Unrotate X
-    float thetaX = atan2(tempPosZ, tempPosY);
-    float lenX = sqrt(tempPosY * tempPosY + tempPosZ * tempPosZ);
-    thetaX -= pwRot.x;
-    tempPosY = lenX * cos(thetaX);
-    tempPosZ = lenX * sin(thetaX);
-    // Unrotate Y
-    float thetaY = atan2(tempPosZ, tempPosX);
-    float lenY = sqrt(tempPosX * tempPosX + tempPosZ * tempPosZ);
-    thetaY -= pwRot.y;
-    tempPosX = lenY * cos(thetaY);
-    tempPosZ = lenY * sin(thetaY);
-    // Compile
-    tempPos.set(tempPosX, tempPosY, tempPosZ);
+    // Unrotate
+    float theta = atan2(tempPosY, tempPosX)  -  pwRot;
+    float len = sqrt(tempPosX * tempPosX + tempPosY * tempPosY);
+    tempPosX = len * cos(theta);
+    tempPosY = len * sin(theta);
+    // Recompile
+    tempPos.set(tempPosX, tempPosY, tempPos.z);
     
     // Unscale
     tempPos.set( tempPos.x / pwScale.x,  tempPos.y / pwScale.y,  tempPos.z / pwScale.z);
@@ -221,8 +248,7 @@ class DAGTransform
     // Set position
     localPos = tempPos;
     // Set rotations
-    //localRot = new PVector( atan2(localPos.y, localPos.z),  atan2(localPos.z, localPos.x),  atan2(localPos.x, localPos.y) );
-    localRot = PVector.sub(worldRot, pwRot);
+    localRot = worldRot - pwRot;
     // Set scale
     localScale = new PVector( worldScale.x / pwScale.x,  worldScale.y / pwScale.y,  worldScale.z / pwScale.z );
     
@@ -244,7 +270,7 @@ class DAGTransform
   {
     // Get world transforms of parent
     PVector pwPos = new PVector(0,0,0);
-    PVector pwRot = new PVector(0,0,0);
+    float pwRot = 0;
     PVector pwScale = new PVector(1,1,1);
     if( parent != null )
     {
@@ -253,37 +279,31 @@ class DAGTransform
       pwScale = parent.getWorldScale();
     }
     
-    // Add some angles
-    // Remember, use YXZ rotation
-    worldRot = PVector.add(pwRot, localRot);
+    // Update rotation
+    worldRot = pwRot + localRot;
     
     // Update position
     // This uses only the angles of the parent
-    float dist = localPos.mag();
-    // Unrotate (using reverse YXZ)
-    float tempPosX = localPos.x;
-    float tempPosY = localPos.y;
-    float tempPosZ = localPos.z;
-    // Unrotate Z
-    float thetaZ = atan2(tempPosY, tempPosX);
-    // Unrotate X
-    float thetaX = atan2(tempPosZ, tempPosY);
-    // Unrotate Y
-    float thetaY = atan2(tempPosZ, tempPosX);
-    // Get new total rotation
-    PVector newRot = new PVector(thetaX, thetaY, thetaZ);
-    newRot.add(pwRot);
-    // Get new world offset from parent
-    // In Y...
+    float theta = atan2(localPos.y, localPos.x);
+    theta += pwRot;
+    float d = localPos.mag();
+    // Compute X position
+    float tempX = cos(theta) * d * pwScale.x + pwPos.x;
+    // Compute Y position
+    float tempY = sin(theta) * d * pwScale.y + pwPos.y;
+    // Compute Z position
+    float tempZ = localPos.z * pwScale.z + pwPos.z;
+    // Compile total position
+    worldPos.set(tempX, tempY, tempZ);
     
-    // ... in X...
-    // ... and in Z.
+    // Update scale
+    worldScale.set( localScale.x * pwScale.x,  localScale.y * pwScale.y,  localScale.z * pwScale.z );
   }
   // updateWorld
   
   
   public PVector getWorldPosition()  {  return( worldPos );  }
-  public PVector getWorldRotation()  {  return( worldRot );  }
+  public float getWorldRotation()  {  return( worldRot );  }
   public PVector getWorldScale()  {  return( worldScale );  }
   
   public void setWorldPosition(float x, float y, float z)
@@ -291,9 +311,9 @@ class DAGTransform
     worldPos.set(x,y,z);
     updateLocal();
   }
-  public void setWorldRotation(float x, float y, float z)
+  public void setWorldRotation(float r)
   {
-    worldRot.set(x,y,z);
+    worldRot = r;
     updateLocal();
   }
   public void setWorldScale(float x, float y, float z)
@@ -303,7 +323,7 @@ class DAGTransform
   }
   
   public PVector getLocalPosition()  {  return( localPos );  }
-  public PVector getLocalRotation()  {  return( localRot );  }
+  public float getLocalRotation()  {  return( localRot );  }
   public PVector getLocalScale()  {  return( localScale );  }
   
   public void setLocalPosition(float x, float y, float z)
@@ -311,9 +331,9 @@ class DAGTransform
     localPos.set(x,y,z);
     updateWorld();
   }
-  public void setLocalRotation(float x, float y, float z)
+  public void setLocalRotation(float r)
   {
-    localRot.set(x,y,z);
+    localRot = r;
     updateWorld();
   }
   public void setLocalScale(float x, float y, float z)
