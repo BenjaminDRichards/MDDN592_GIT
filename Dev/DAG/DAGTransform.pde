@@ -187,6 +187,23 @@ class DAGTransform
   // getParent
   
   
+  public DAGTransform getGrandparent()
+  // Returns the world-parented parent at the top of the tree
+  {
+    if( !hasParent )
+    {
+      // This is at the top of the tree
+      return( this );
+    }
+    else
+    {
+      // Go recursive
+      return( parent.getGrandparent() );
+    }
+  }
+  // getGrandparent
+  
+  
   public boolean isChildOf(DAGTransform dag)
   // Returns true if node "dag" is above this node
   // This also counts grandchildren, etc
@@ -300,6 +317,31 @@ class DAGTransform
     worldScale.set( localScale.x * pwScale.x,  localScale.y * pwScale.y,  localScale.z * pwScale.z );
   }
   // updateWorld
+  
+  
+  public ArrayList getChildren()
+  // Gets the immediate children
+  {
+    return( children );
+  }
+  // getChildren
+  
+  
+  public ArrayList getAllChildren()
+  // Gets a flat list of all children and sub-children
+  {
+    ArrayList allChildren = new ArrayList();
+    Iterator i = children.iterator();
+    while( i.hasNext() )
+    {
+      DAGTransform d = (DAGTransform) i.next();
+      allChildren.add(d);
+      // Go recursive
+      allChildren.addAll( d.getAllChildren() );
+    }
+    return( allChildren );
+  }
+  // getAllChildren
   
   
   public PVector getWorldPosition()  {  return( worldPos );  }

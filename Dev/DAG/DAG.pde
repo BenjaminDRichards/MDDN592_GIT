@@ -25,7 +25,11 @@
 */
 
 
-DAGTransform dg1, dg2, dg3;
+import java.util.*;
+
+
+//DAGTransform dg1, dg2, dg3;
+DAGWorld dagWorld;
 
 
 void setup()
@@ -33,15 +37,25 @@ void setup()
   size(1024, 768, JAVA2D);
   
   // Test DAG
-  dg1 = new DAGTransform(400,100,0,  0,  1,1,1,  0,0,0);
-  dg2 = new DAGTransform(400,120,0,  0,  1,1,1,  0,0,0);
-  dg3 = new DAGTransform(400,140,0,  0,  1,1,1,  0,0,0);
+  
+  dagWorld = new DAGWorld();
+  
+  DAGTransform dg1 = new DAGTransform(400,100,0,  0,  1,1,1,  0,0,0);
+  DAGTransform dg2 = new DAGTransform(400,120,0,  0,  1,1,1,  0,0,0);
+  DAGTransform dg3 = new DAGTransform(400,140,0,  0,  1,1,1,  0,0,0);
   
   dg2.addChild(dg3);
   dg2.setParent(dg1);
   dg3.setParentToWorld();
   
   println(dg1.getParent() + " " + dg2.getParent() + " " + dg3.getParent());
+  
+  dagWorld.addNode(dg1);
+  dagWorld.addNode(dg2);
+  dagWorld.addNode(dg3);
+  
+  println( "All dags: " + dagWorld.getAllDags().toArray() );
+  println( "Top dags: " + dagWorld.getTopDags().size() );
 }
 
 void draw()
@@ -49,6 +63,19 @@ void draw()
   background(255);
   
   // Diagnose dags
+  ArrayList dags = dagWorld.getAllDags();
+  Iterator i = dags.iterator();
+  while( i.hasNext() )
+  {
+    DAGTransform d = (DAGTransform) i.next();
+    pushMatrix();
+    translate(d.getWorldPosition().x, d.getWorldPosition().y);
+    rotate(d.getWorldRotation());
+    scale(d.getWorldScale().x, d.getWorldScale().y);
+    rect(0,0, 8,8);
+    popMatrix();
+  }
+  /*
   dg1.moveWorld( sin(frameCount * 0.1), 0, 0 );
   dg1.rotate( 0.1 * sin(frameCount * 0.1) );
   dg1.scale( 1 + 0.01 * sin(frameCount * 0.01) );
@@ -86,4 +113,5 @@ void draw()
   fill(0,0,255,64);
   rect(0,0, 8 * scale3.x, 8 * scale3.y);
   popMatrix();
+  */
 }
