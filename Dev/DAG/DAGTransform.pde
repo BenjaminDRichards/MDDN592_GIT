@@ -100,6 +100,19 @@ class DAGTransform
   // scale
   
   
+  public void snapTo(DAGTransform d)
+  // Orients this node to the world transform of d
+  {
+    PVector targetPosition = d.getWorldPosition();
+    float targetRotation = d.getWorldRotation();
+    PVector targetScale = d.getWorldScale();
+    setWorldPosition(targetPosition.x, targetPosition.y, targetPosition.z);
+    setWorldRotation(targetRotation);
+    setWorldScale(targetScale.x, targetScale.y, targetScale.z);
+  }
+  // snapTo
+  
+  
   public void setParent(DAGTransform p)
   // Sets up a parent relationship
   {
@@ -315,6 +328,15 @@ class DAGTransform
     
     // Update scale
     worldScale.set( localScale.x * pwScale.x,  localScale.y * pwScale.y,  localScale.z * pwScale.z );
+    
+    // Update children world transforms
+    // Local transforms are always preserved
+    Iterator i = children.iterator();
+    while( i.hasNext() )
+    {
+      DAGTransform c = (DAGTransform) i.next();
+      c.updateWorld();
+    }
   }
   // updateWorld
   

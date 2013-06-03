@@ -20,7 +20,8 @@
   but for now it's all good.
   
   I'd like to work in normalized coordinates.
-  The screen is 1.0 tall, and (width / height) wide.
+  While 0-1 is a poor range, 0-100 seems to work pretty well.
+  I've defined the origin as the center top of the screen.
   While this makes little difference to the DAG, I want it explicit.
 */
 
@@ -28,42 +29,35 @@
 import java.util.*;
 
 
-//DAGTransform dg1, dg2, dg3;
-DAGWorld dagWorld;
+Story story;
 
 
 void setup()
 {
-  size(1024, 768, JAVA2D);
+  size(1024, 768, P2D);
   
-  // Test DAG
-  
-  dagWorld = new DAGWorld();
-  
-  DAGTransform dg1 = new DAGTransform(400,100,0,  0,  1,1,1,  0,0,0);
-  DAGTransform dg2 = new DAGTransform(400,120,0,  0,  1,1,1,  0,0,0);
-  DAGTransform dg3 = new DAGTransform(400,140,0,  0,  1,1,1,  0,0,0);
-  
-  dg2.addChild(dg3);
-  dg2.setParent(dg1);
-  dg3.setParentToWorld();
-  
-  println(dg1.getParent() + " " + dg2.getParent() + " " + dg3.getParent());
-  
-  dagWorld.addNode(dg1);
-  dagWorld.addNode(dg2);
-  dagWorld.addNode(dg3);
-  
-  println( "All dags: " + dagWorld.getAllDags().toArray() );
-  println( "Top dags: " + dagWorld.getTopDags().size() );
+  // Setup story
+  story = new Story();
 }
+// setup
+
 
 void draw()
 {
   background(255);
   
-  // Diagnose dags
-  ArrayList dags = dagWorld.getAllDags();
+  
+  // Manage story
+  story.run();
+  
+  
+  // Render dags
+  noStroke();
+  fill(127);
+  pushMatrix();
+  scale(height * 0.01, height * 0.01);          // Percentile coordinate system
+  translate( 50.0 * width / height, 0 );       // Go to middle of screen
+  ArrayList dags = story.dagWorld.getAllDags();
   Iterator i = dags.iterator();
   while( i.hasNext() )
   {
@@ -72,46 +66,25 @@ void draw()
     translate(d.getWorldPosition().x, d.getWorldPosition().y);
     rotate(d.getWorldRotation());
     scale(d.getWorldScale().x, d.getWorldScale().y);
-    rect(0,0, 8,8);
+    rect(0,0, 2,2);
     popMatrix();
   }
-  /*
-  dg1.moveWorld( sin(frameCount * 0.1), 0, 0 );
-  dg1.rotate( 0.1 * sin(frameCount * 0.1) );
-  dg1.scale( 1 + 0.01 * sin(frameCount * 0.01) );
-  dg2.moveLocal( 0, sin(frameCount * 0.1), 0 );
-  dg2.rotate( 0.1 * cos(frameCount * 0.1) );
-  dg3.rotate( 0.1 * sin(frameCount * 0.1) );
-  
-  PVector pos1 = dg1.getWorldPosition();
-  PVector pos2 = dg2.getWorldPosition();
-  PVector pos3 = dg3.getWorldPosition();
-  float rot1 = dg1.getWorldRotation();
-  float rot2 = dg2.getWorldRotation();
-  float rot3 = dg3.getWorldRotation();
-  PVector scale1 = dg1.getWorldScale();
-  PVector scale2 = dg2.getWorldScale();
-  PVector scale3 = dg3.getWorldScale();
-  
-  pushMatrix();
-  translate(pos1.x, pos1.y);
-  rotate(rot1);
-  fill(255,0,0,64);
-  rect(0,0, 8 * scale1.x, 8 * scale1.y);
   popMatrix();
   
-  pushMatrix();
-  translate(pos2.x, pos2.y);
-  rotate(rot2);
-  fill(0,255,0,64);
-  rect(0,0, 8 * scale2.x, 8 * scale2.y);
-  popMatrix();
   
-  pushMatrix();
-  translate(pos3.x, pos3.y);
-  rotate(rot3);
-  fill(0,0,255,64);
-  rect(0,0, 8 * scale3.x, 8 * scale3.y);
-  popMatrix();
-  */
+  // Diagnostics
+  if(frameCount % 60 == 0)  println("FPS " + frameRate);
 }
+// draw
+
+
+void mouseReleased()
+{
+  // Convert mouse coordinates to screen space
+  float mx = (mouseX - width * 0.5) * 100.0 / height;
+  float my = mouseY * 100.0 / height;
+  
+  // Create a tree at clicked locus
+  story.birthTreeAt(mx, my);
+}
+// mouseReleased
