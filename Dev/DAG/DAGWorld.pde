@@ -27,6 +27,19 @@ class DAGWorld
   // addNode
   
   
+  public void addNodeCollection(ArrayList list)
+  // Adds all the DAGs in an arraylist
+  {
+    Iterator i = list.iterator();
+    while( i.hasNext() )
+    {
+      DAGTransform d = (DAGTransform) i.next();
+      addNode(d);
+    }
+  }
+  // addNodeCollection
+  
+  
   public ArrayList getAllDags()
   // Returns all DAGTransform nodes parented to this world or children thereof
   {

@@ -1,19 +1,23 @@
 class Animator
 // Manages procedural animations, whether one-off or continuous.
 {
-  public boolean pleaseRemove;  // Used to signal animation completion or removal
+  public boolean pleaseRemove;   // Used to signal animation completion or removal
   private DAGTransform target;   // Subject of animation
   private AnimatorDAGRecord key1, key2;  // Animation parameters
   private int type;              // Index of animation type
   private float period;          // Animation length (in ticks)
   private float phase;           // Animation completion, in range 0 to 1.
-  private float delay;          // Animation offset, useful for cycles
+  private float delay;           // Animation offset, useful for cycles
+  
+  private boolean slider;        // Slider animators don't update on ticks
   
   public static final int ANIM_OSCILLATE = 1;
   public static final int ANIM_TWEEN_LERP = 2;
   public static final int ANIM_TWEEN_SMOOTH = 3;
   public static final int ANIM_TWEEN_FLOP = 4;
-  public static final int ANIM_NOISE = 5;
+  public static final int ANIM_TWEEN_FLOP_OUT = 5;
+  public static final int ANIM_NOISE = 6;
+  public static final int ANIM_CONSTANT = 7;
   
   
   Animator(DAGTransform target, AnimatorDAGRecord key1, AnimatorDAGRecord key2, int type, float period)
@@ -26,18 +30,45 @@ class Animator
     
     delay = 0;
     pleaseRemove = false;
+    slider = false;
   }
   
   
   public void run(float tick)
   // Call once per frame to advance simulation
   {
-    float phaseIncrease = tick / (float) period;
-    phase += phaseIncrease;
+    if(!slider)
+    {
+      float phaseIncrease = tick / (float) period;
+      phase += phaseIncrease;
+    }
     
     doAnimation();
   }
   // run
+  
+  
+  public void useSlider(boolean b)
+  {
+    slider = b;
+  }
+  // useSlider
+  
+  
+  public void setSlider(float s)
+  // Sets the slider, clamped between 1 and 0
+  {
+    phase = constrain(s, 0, 1);
+  }
+  // setSlider
+  
+  
+  public void slide(float s)
+  // Adjusts the slider
+  {
+    setSlider(phase + s);
+  }
+  // slide
   
   
   private void doAnimation()
@@ -66,6 +97,14 @@ class Animator
         // As ANIM_TWEEN_SMOOTH, but with anticipation and follow-through.
         amt = computeFlopAmount(amt);
         checkTermination();
+        break;
+      case ANIM_TWEEN_FLOP_OUT:
+        amt = computeFlopOutAmount(amt);
+        checkTermination();
+        break;
+      case ANIM_CONSTANT:
+        amt = 0.0;
+        // Does not terminate
         break;
       default:
         break;
@@ -110,7 +149,7 @@ class Animator
   private void checkTermination()
   // Flag for removal if animation is complete
   {
-    if( 1.0 <= phase - delay )
+    if( 1.0 <= phase - delay    &&    !slider )
     {
       pleaseRemove = true;
     }
@@ -145,6 +184,27 @@ class Animator
     // (3x^2-2x^3) - (x/(1+x)) gives rather nice anticipation but only reaches 0.5
   }
   // computeFlopAmount
+  
+  
+  private float computeFlopOutAmount(float n)
+  // A floppy tween with no anticipation, just recovery
+  {
+    float amt = 0;
+    if(n < 0.75)
+    {
+      // Action
+      float x = n / 0.75;
+      amt = 1.25 * (3 * pow(x, 2) - 2 * pow(x, 3));
+    }
+    else
+    {
+      // Recovery
+      float x = (n - 0.75) * 4;
+      amt = 1.25 - 0.25 * (3 * pow(x, 2) - 2 * pow(x, 3));
+    }
+    return( amt );
+  }
+  // computeFlopOutAmount
   
   
   public void setDelay(float delay)
