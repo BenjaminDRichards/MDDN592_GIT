@@ -20,14 +20,10 @@ class DAGTransform
   private float worldRot;
   private PVector worldScale;
   
-  // Center data
-  private PVector center;
-  
   
   DAGTransform(float wpX, float wpY, float wpZ,
                float wr,
-               float wsX, float wsY, float wsZ,
-               float cX, float cY, float cZ)
+               float wsX, float wsY, float wsZ)
   {
     // Setup hierarchy
     parent = null;
@@ -38,7 +34,6 @@ class DAGTransform
     worldPos = new PVector(wpX, wpY, wpZ);
     worldRot = wr;
     worldScale = new PVector(wsX, wsY, wsZ);
-    center = new PVector(cX, cY, cZ);
     
     // Set initial local transform
     updateLocal();
@@ -405,8 +400,5 @@ class DAGTransform
     localScale.set(x,y,z);
     updateWorld();
   }
-  
-  public PVector getCenter()  {  return( center );  }
-  public void setCenter(float x, float y, float z)  {  center.set(x,y,z);  }
 }
 // DAGTransform

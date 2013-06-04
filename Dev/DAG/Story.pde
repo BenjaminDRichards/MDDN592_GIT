@@ -13,11 +13,16 @@ Includes time management.
 */
 {
   // Scene
-  LandscapeBlocks landscape;
+  LandscapeBlocks landscape, landscape2;
   DAGWorld dagWorld;
   AnimatorManager animatorManager;
   ArrayList sliders;
   float masterSlider;
+  float transitionSpeed;
+  ArrayList sprites, spritesBack;
+  boolean recording;
+  
+  float WIND_PERIOD = 360;
   
   // Event manager
   ArrayList storyEvents;
@@ -38,7 +43,10 @@ Includes time management.
   
   
   // Graphics
-  
+  PImage img_connector = loadImage("Connector1.png");
+  PImage img_leaf = loadImage("Leaf1.png");
+  PImage img_clutter = loadImage("Clutter1.png");
+  PImage img_fog = loadImage("Fog1.png");
   
   
   Story()
@@ -50,6 +58,10 @@ Includes time management.
     dagWorld = new DAGWorld();
     sliders = new ArrayList();
     masterSlider = 0;
+    transitionSpeed = 0;
+    sprites = new ArrayList();
+    spritesBack = new ArrayList();
+    recording = false;
     
     // Setup story
     setupStory();
@@ -105,8 +117,107 @@ Includes time management.
     
     // Run animation
     animatorManager.run(tick);
+    // Refresh sliders
+    slide(transitionSpeed);
+    
+    
+    // Render graphics
+    render();
   }
   // run
+  
+  
+  void render(PGraphics pg)
+  {
+    pg.background(0,32,64);
+    
+    // Render rear terrain
+    renderTerrain(pg, landscape2);
+    // Render rear sprites
+    Iterator iSprBak = spritesBack.iterator();
+    while( iSprBak.hasNext() )
+    {
+      Sprite sprite = (Sprite) iSprBak.next();
+      sprite.render(pg);
+    }
+    
+    // Distance fog
+    float smoothSlider = 3 * pow(masterSlider, 2) - 2 * pow(masterSlider, 3);
+    color fogCol = lerpColor(color(192), color(127, 192, 255), smoothSlider);
+    pg.pushStyle();
+    pg.noStroke();
+    pg.tint( fogCol, 255 * (1 - smoothSlider) );
+    pg.pushMatrix();
+    pg.translate(0, 100 * smoothSlider);
+    pg.rotate(-smoothSlider);
+    pg.image(img_fog, -50.0 * pg.width / (float)pg.height, 0,  100 * pg.width / (float)pg.height, 100);
+    pg.popMatrix();
+    pg.pushMatrix();
+    pg.translate(0, 100 * (1 - smoothSlider) );
+    pg.scale(1, -1);
+    pg.image(img_fog, -50.0 * pg.width / (float)pg.height, 0,  100 * pg.width / (float)pg.height, 100);
+    pg.popMatrix();
+    pg.fill( fogCol, 255 - 128 * pow(smoothSlider, 0.5) );
+    pg.rect(-50.0 * pg.width / (float)pg.height, 0,  100 * pg.width / (float)pg.height, 100);
+    pg.popStyle();
+    
+    // Render sprites
+    pg.pushStyle();
+    pg.tint(0);
+    Iterator iSpr = sprites.iterator();
+    while( iSpr.hasNext() )
+    {
+      Sprite sprite = (Sprite) iSpr.next();
+      sprite.render(pg);
+    }
+    pg.popStyle();
+    
+    // Render front terrain
+    renderTerrain(pg, landscape);
+    
+    
+    // Recording
+    if(recording)
+    {
+      String filename = "render" + nf(frameCount, 5) + ".png";
+      save("renders/" + filename);
+    }
+  }
+  // render
+  
+  void render()
+  // Renders to g (default graphics)
+  {
+    render(g);
+  }
+  // render
+  
+  
+  private void renderTerrain(PGraphics pg, LandscapeBlocks land)
+  {
+    ArrayList filledLandscape = land.getFilledNodes();
+    pg.fill(0);
+    Iterator iTer = filledLandscape.iterator();
+    while( iTer.hasNext() )
+    {
+      DAGTransform d = (DAGTransform) iTer.next();
+      ArrayList corners = land.getCornersFromNode(d);
+      
+      // Render fill
+      pg.beginShape();
+      PVector v0 = ( (DAGTransform)corners.get(0) ).getWorldPosition();
+      PVector v1 = ( (DAGTransform)corners.get(1) ).getWorldPosition();
+      PVector v2 = ( (DAGTransform)corners.get(2) ).getWorldPosition();
+      PVector v3 = ( (DAGTransform)corners.get(3) ).getWorldPosition();
+      pg.vertex(v0.x, v0.y);
+      pg.vertex(v1.x, v1.y);
+      pg.vertex(v2.x, v2.y);
+      pg.vertex(v3.x, v3.y);
+      pg.vertex(v0.x, v0.y);
+      pg.endShape();
+    }
+  }
+  // renderTerrain
   
   
   
@@ -125,13 +236,101 @@ Includes time management.
   {
     println("Code " + code + " triggered at " + tickTotal);
     
-    
-    
-    // Program control
-    if(code == 999)  cmd_program_end();
+    switch(code)
+    {
+      case 101:
+        cmd_makeTreeA();
+        break;
+      case 102:
+        cmd_makeTreeB();
+        break;
+      case 103:
+        cmd_makeTreeC();
+        break;
+      case 104:
+        cmd_makeTreeD();
+        break;
+      case 200:
+        cmd_transition();
+        break;
+      case 201:
+        cmd_unTransition();
+        break;
+      case 901:
+        cmd_start_recording();
+        break;
+      case 999:
+        cmd_program_end();
+        break;
+      default:
+        break;
+    }
   }
   // command
   
+  
+  void cmd_makeTreeA()
+  // CODE 101
+  // Makes the first tree
+  {
+    birthTreeAt(0, 75);
+  }
+  // cmd_makeTreeA
+  
+  
+  void cmd_makeTreeB()
+  // CODE 102
+  // Puts a tree on the rocks to the right
+  {
+    birthTreeAt(10, 40);
+  }
+  // cmd_makeTreeB
+  
+  
+  void cmd_makeTreeC()
+  // CODE 103
+  // Puts a tree on the rocks to the left
+  {
+    birthTreeAt(-30, 20);
+  }
+  // cmd_makeTreeC
+  
+  
+  void cmd_makeTreeD()
+  // CODE 104
+  // Puts a tree on the ground to the left
+  {
+    birthTreeAt(-30, 60);
+  }
+  // cmd_makeTreeD
+  
+  
+  void cmd_transition()
+  // CODE 200
+  // Initiates transition from straight to noisy mode
+  {
+    transitionSpeed = 1.0 / 480;
+  }
+  // cmd_transition
+  
+  
+  void cmd_unTransition()
+  // CODE 201
+  // Initiates transition from straight to noisy mode
+  {
+    transitionSpeed = -1.0 / 480;
+  }
+  // cmd_transition
+  
+  
+  void cmd_start_recording()
+  // CODE 901
+  // Sets time to no-skip and starts recording
+  {
+    timeMode = 1;
+    recording = true;
+  }
+  // cmd_start_recording
   
   
   void cmd_program_end()
@@ -149,6 +348,10 @@ Includes time management.
   {
     // Adjust master slider
     masterSlider = constrain(masterSlider + amt, 0, 1);
+    if(masterSlider == 1  ||  masterSlider == 0)
+    {
+      transitionSpeed = 0;
+    }
     
     // Adjust all registered sliders
     Iterator i = sliders.iterator();
@@ -162,6 +365,25 @@ Includes time management.
   // slide
   
   
+  public float getMasterSlider()
+  {
+    return( masterSlider );
+  }
+  // getMasterSlider
+  public void setMasterSlider(float s)
+  {
+    masterSlider = s;
+  }
+  // getMasterSlider
+  
+  
+  public ArrayList getSprites()
+  {
+    return( sprites );
+  }
+  // getSprites
+  
+  
   
   void setupStory()
   // Script the sequence of events
@@ -171,31 +393,64 @@ Includes time management.
     dagWorld.addNodeCollection( landscape.getNodes() );
     setupLandscapeA(landscape);
     
-    // Test tree code
-    DAGTransform anchor = landscape.getNearestNode(0, 75);
-    DAGTransform tree = birthTree(8, 3.0);
-    tree.snapTo(anchor);
-    tree.setParent(anchor);
+    landscape2 = new LandscapeBlocks(-105, -25, 100, 120, 10, this);
+    dagWorld.addNodeCollection( landscape2.getNodes() );
+    setupLandscapeB(landscape2);
+    
+    addClutterToLandscape(landscape);
+    
+    // Do recording
+    makeEvent(0, 901);
+    
+    // Spawn trees
+    makeEvent(600, 101);
+    makeEvent(900, 102);
+    makeEvent(1500, 103);
+    makeEvent(1800, 104);
+    
+    // Transition
+    makeEvent(1200, 200);
+    makeEvent(2700, 201);
+    
+    // Termination
+    makeEvent(3600, 999);
   }
   // setupStory
   
   
-  public DAGTransform birthTree(int segs, float delay)
+  public DAGTransform birthTree(int segs, float delay, boolean base)
   // Creates a tree to animate into being
   {
     // Create a root
-    DAGTransform root = new DAGTransform(0, 0, 0,  0,  1,1,1,  0,0,0);
+    DAGTransform root = new DAGTransform(0, 0, 0,  0,  1,1,1);
+    
+    // Register last joint
+    DAGTransform lastJoint = root;
+    
+    // Create sprite
+    Sprite spriteRoot = new Sprite(root, img_connector, 5,5, -0.5,-0.8);
+    sprites.add(spriteRoot);
     
     // Add initial animation
-    AnimatorDAGRecord root_key1 = new AnimatorDAGRecord(0,0,0, 0, 0,0,0, 0,0,0);
+    AnimatorDAGRecord root_key1 = new AnimatorDAGRecord(0,0,0, 0, 0,0,0);
     root_key1.useSX = true;  root_key1.useSY = true;  root_key1.useSZ = true;
-    AnimatorDAGRecord root_key2 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1, 0,0,0);
+    AnimatorDAGRecord root_key2 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
     Animator root_anim = new Animator(root, root_key1, root_key2, Animator.ANIM_TWEEN_SMOOTH, 60);
     root_anim.setDelay(delay);
     animatorManager.addAnimator(root_anim);
     
-    // Register last joint
-    DAGTransform lastJoint = root;
+    if(base)
+    {
+      // Create master
+      AnimatorDAGRecord adr = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
+      adr.useSX = true;  adr.useSY = true;  adr.useSZ = true;
+      root.setParent(adr);
+      root = adr;  // This is to ensure the correct return
+      // Add a scale slider to compensate for shrinkage
+      AnimatorDAGRecord rootSlideKey1 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
+      AnimatorDAGRecord rootSlideKey2 = new AnimatorDAGRecord(0,0,0, 0, 2,2,2);
+      makeSlider(adr, rootSlideKey1, rootSlideKey2);
+    }
     
     // Setup some constants
     PVector spacing = new PVector(0, -3, 0);
@@ -206,18 +461,20 @@ Includes time management.
     for(int i = 0;  i < segs;  i++)
     {
       // Create joints
-      DAGTransform jointGrower = new DAGTransform(0,0,0, 0, 1,1,1, 0,0,0);
+      DAGTransform jointGrower = new DAGTransform(0,0,0, 0, 1,1,1);
       jointGrower.snapTo(lastJoint);
       jointGrower.setParent(lastJoint);
-      DAGTransform jointCycler = new DAGTransform(0,0,0, 0, 1,1,1, 0,0,0);
+      DAGTransform jointCycler = new DAGTransform(0,0,0, 0, 1,1,1);
       jointCycler.snapTo(lastJoint);
       jointCycler.setParent(jointGrower);
       
+      // Create sprite
+      Sprite sprite = new Sprite(jointCycler, img_connector, 5,5, -0.5,-1.0);
+      sprites.add(sprite);
+      
       // Make a scale slider to taper joints
       // I'm just using one key in key1/key2 here to keep it constant
-      // I'm also adding the joint offset here, so as to keep scale and offset linked
-      AnimatorDAGRecord cycle_scale = new AnimatorDAGRecord(spacing.x, spacing.y, spacing.z, 0, 1,1,1, 0,0,0);
-      cycle_scale.usePX = true;  cycle_scale.usePY = true;  cycle_scale.usePZ = true;
+      AnimatorDAGRecord cycle_scale = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
       cycle_scale.useSX = true;  cycle_scale.useSY = true;  cycle_scale.useSZ = true;
       Animator cycle_scale_anim = new Animator(jointCycler, cycle_scale, cycle_scale, Animator.ANIM_CONSTANT, 1);
       animatorManager.addAnimator(cycle_scale_anim);
@@ -225,36 +482,36 @@ Includes time management.
       AnimatorDAGRecord cycle_scale_slideKey1 = new AnimatorDAGRecord(
         cycle_scale.getUsedPosition().x, cycle_scale.getUsedPosition().y, cycle_scale.getUsedPosition().y,
         cycle_scale.getUsedRotation(),
-        cycle_scale.getUsedScale().x, cycle_scale.getUsedScale().y, cycle_scale.getUsedScale().y,
-        0,0,0);
-      cycle_scale_slideKey1.usePX = true;  cycle_scale_slideKey1.usePY = true;  cycle_scale_slideKey1.usePZ = true;
+        cycle_scale.getUsedScale().x, cycle_scale.getUsedScale().y, cycle_scale.getUsedScale().z);
       cycle_scale_slideKey1.useSX = true;  cycle_scale_slideKey1.useSY = true;  cycle_scale_slideKey1.useSZ = true;
-      AnimatorDAGRecord cycle_scale_slideKey2 = new AnimatorDAGRecord(
-        spacing.x * taper.x, spacing.y * taper.y, spacing.z * taper.z,
-        cycle_scale.getUsedRotation(),
-        taper.x, taper.y, taper.y,
-        0,0,0);
+      AnimatorDAGRecord cycle_scale_slideKey2 = new AnimatorDAGRecord(0,0,0, cycle_scale.getUsedRotation(), taper.x, taper.y, taper.z);
       cycle_scale_slideKey2.usePX = true;  cycle_scale_slideKey2.usePY = true;  cycle_scale_slideKey2.usePZ = true;
       cycle_scale_slideKey2.useSX = true;  cycle_scale_slideKey2.useSY = true;  cycle_scale_slideKey2.useSZ = true;
       makeSlider(cycle_scale, cycle_scale_slideKey1, cycle_scale_slideKey2);
       
       // Add phased behaviour to joints
       float flex = 0.25 * i / (float)segs;
-      AnimatorDAGRecord cycle_key1 = new AnimatorDAGRecord(0,0,0, -flex, 1,1,1, 0,0,0);
+      AnimatorDAGRecord cycle_key1 = new AnimatorDAGRecord(0,0,0, -flex, 1,1,1);
       cycle_key1.useR = true;
       makeZeroSlider(cycle_key1);
-      AnimatorDAGRecord cycle_key2 = new AnimatorDAGRecord(0,0,0, flex, 1,1,1, 0,0,0);
+      AnimatorDAGRecord cycle_key2 = new AnimatorDAGRecord(0,0,0, flex, 1,1,1);
       cycle_key2.useR = true;
       makeZeroSlider(cycle_key2);
-      Animator cycle_anim = new Animator(jointCycler, cycle_key1, cycle_key2, Animator.ANIM_OSCILLATE, 180);
+      Animator cycle_anim = new Animator(jointCycler, cycle_key1, cycle_key2, Animator.ANIM_OSCILLATE, WIND_PERIOD);
       cycle_anim.setDelay( i / (float)segs );
       animatorManager.addAnimator(cycle_anim);
       
       // Add growth behaviour to joints
-      AnimatorDAGRecord grow_key1 = new AnimatorDAGRecord(0,0,0, PI, 0,0,0, 0,0,0);
-      grow_key1.useR = true;  grow_key1.useSX = true;  grow_key1.useSY = true;  grow_key1.useSZ = true;
-      AnimatorDAGRecord grow_key2 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1, 0,0,0);
-      grow_key2.useR = true;  grow_key2.useSX = true;  grow_key2.useSY = true;  grow_key2.useSZ = true;
+      // Also add the offset here
+      float startAngle = random(1.0) < 0.5  ?  PI  :  -PI;
+      AnimatorDAGRecord grow_key1 = new AnimatorDAGRecord(spacing.x,spacing.y,spacing.z, startAngle, 0,0,0);
+      grow_key1.usePX = true;  grow_key1.usePY = true;  grow_key1.usePZ = true;
+      grow_key1.useR = true;
+      grow_key1.useSX = true;  grow_key1.useSY = true;  grow_key1.useSZ = true;
+      AnimatorDAGRecord grow_key2 = new AnimatorDAGRecord(spacing.x,spacing.y,spacing.z, 0, 1,1,1);
+      grow_key2.usePX = true;  grow_key2.usePY = true;  grow_key2.usePZ = true;
+      grow_key2.useR = true;
+      grow_key2.useSX = true;  grow_key2.useSY = true;  grow_key2.useSZ = true;
       Animator grow_anim = new Animator(jointGrower, grow_key1, grow_key2, Animator.ANIM_TWEEN_FLOP_OUT, 60);
       float growDelay = delay + i * 0.25;
       grow_anim.setDelay(growDelay);
@@ -264,7 +521,7 @@ Includes time management.
       if( (random(1.0) < 0.3)  &&  (i < segs - 1) )
       {
         // That is, branches away from the top have a 30% chance of happening
-        DAGTransform branch = birthTree( floor( segs - random(i + 1) ), growDelay + 0.25);
+        DAGTransform branch = birthTree( floor( segs - random(i + 1) ), growDelay + 0.25,  false);
         branch.snapTo(jointCycler);
         // Determine side
         float side = 1;
@@ -273,13 +530,13 @@ Includes time management.
           side = -1;
         }
         // Build rotation and slider assets
-        AnimatorDAGRecord branch_slideKey1 = new AnimatorDAGRecord(0,0,0, HALF_PI * side, 1,1,1, 0,0,0);
+        AnimatorDAGRecord branch_slideKey1 = new AnimatorDAGRecord(0,0,0, HALF_PI * side, 1,1,1);
         branch_slideKey1.useR = true;
         float actualAngle = HALF_PI - random(1.0);
-        AnimatorDAGRecord branch_slideKey2 = new AnimatorDAGRecord(0,0,0, actualAngle * side, 1,1,1, 0,0,0);
+        AnimatorDAGRecord branch_slideKey2 = new AnimatorDAGRecord(0,0,0, actualAngle * side, 1,1,1);
         branch_slideKey2.useR = true;
         // Attach via animation proxy
-        AnimatorDAGRecord branchAnimMaster = new AnimatorDAGRecord(0,0,0, 0, 1,1,1, 0,0,0);
+        AnimatorDAGRecord branchAnimMaster = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
         branchAnimMaster.useR = true;
         branchAnimMaster.snapTo(jointCycler);
         branchAnimMaster.setParent(jointCycler);
@@ -294,11 +551,15 @@ Includes time management.
           // Add leaves on both sides
           for(int j = -1;  j < 2;  j += 2)
           {
-            DAGTransform leaf = new DAGTransform(0,0,0, 0, 1,1,1, 0,0,0);
+            DAGTransform leaf = new DAGTransform(0,0,0, 0, 1,1,1);
             leaf.snapTo(jointCycler);
             leaf.setParent(jointCycler);
             leaf.rotate(HALF_PI * j);
-            leaf.moveLocal(spacing.y * j, 0, 0);
+            //leaf.moveLocal(spacing.y * j, 0, 0);
+            
+            // Create sprite
+            Sprite spriteLeaf = new Sprite(leaf, img_leaf, 5,5, -0.5,-1.0);
+            sprites.add(spriteLeaf);
           }
         }
       }
@@ -316,17 +577,17 @@ Includes time management.
   // Create tree at specified coordinates
   {
     DAGTransform anchor = landscape.getNearestFilledNode(x, y);
-    DAGTransform tree = birthTree(8, 0.0);
+    DAGTransform tree = birthTree(8, 0.0, true);
     tree.snapTo(anchor);
     tree.setParent(anchor);
   }
   // birthTreeAt
   
   
-  public void setupLandscapeA(LandscapeBlocks lb)
+  private void setupLandscapeA(LandscapeBlocks land)
   // Sets some filled-in blocks according to a pattern
   {
-    ArrayList list = landscape.getNodes();
+    ArrayList list = land.getNodes();
     Iterator i = list.iterator();
     while( i.hasNext() )
     {
@@ -347,7 +608,7 @@ Includes time management.
       }
       if( fillThresholdY < pos.y  &&  pos.y < 110.0 )
       {
-        landscape.setNodeFilled(dag);
+        land.setNodeFilled(dag);
       }
     }
     
@@ -374,11 +635,65 @@ Includes time management.
     while( i.hasNext() )
     {
       PVector pv = (PVector) i.next();
-      DAGTransform d = landscape.getNearestNode(pv.x, pv.y);
-      landscape.setNodeFilled(d);
+      DAGTransform d = land.getNearestNode(pv.x, pv.y);
+      land.setNodeFilled(d);
     }
   }
   // setupLandscapeA
+  
+  
+  private void setupLandscapeB(LandscapeBlocks land)
+  {
+    ArrayList list = land.getNodes();
+    Iterator i = list.iterator();
+    while( i.hasNext() )
+    {
+      DAGTransform dag = (DAGTransform) i.next();
+      PVector pos = dag.getWorldPosition();
+      float fillThresholdY = 41.0 + 20 * cos(pos.x * 0.1 + 1) - sqrt(abs(pos.x));
+      //fillThresholdY = 71.0;
+      
+      if(fillThresholdY < pos.y)
+      {
+        land.setNodeFilled(dag);
+      }
+    }
+  }
+  // setupLandscapeB
+  
+  
+  private void addClutterToLandscape(LandscapeBlocks land)
+  {
+    for(int i = 0;  i < 128;  i++)
+    {
+      float x = random(-50, 50) * width / (float)height;
+      float y = random(0, 100);
+      DAGTransform dHost = land.getNearestFilledNode(x, y);
+      DAGTransform dTest = land.getNearestNode(x, y);
+      if( 1.0 < PVector.dist( dHost.getWorldPosition(), dTest.getWorldPosition() ) )
+      {
+        // That is, we are not too close to or inside a filled node
+        
+        // Create transform
+        AnimatorDAGRecord dag = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);  // ADAGR for quick sliding
+        dag.useSX = true;  dag.useSY = true;  dag.useSZ = true;
+        dag.snapTo(dHost);
+        dag.setParent(dHost);
+        dag.rotate( random(TWO_PI) );
+        
+        // Set sliders
+        AnimatorDAGRecord key1 = new AnimatorDAGRecord(0,0,0, 0, 0,0,0);
+        AnimatorDAGRecord key2 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
+        makeSlider(dag, key1, key2);
+        
+        // Create sprite
+        float rScale = pow( random(1.0), 2) * 8;
+        Sprite sprite = new Sprite(dag, img_clutter, rScale, rScale, -0.5,-0.5);
+        sprites.add(sprite);
+      }
+    }
+  }
+  // addClutterToLandscape
   
   
   public void makeSlider(AnimatorDAGRecord adagr, AnimatorDAGRecord key1, AnimatorDAGRecord key2)
@@ -410,12 +725,12 @@ Includes time management.
   // "Off" here refers to origin values (0,0,0, 0, 1,1,1)
   {
     // Create zero key
-    AnimatorDAGRecord key1 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1, 0,0,0);
+    AnimatorDAGRecord key1 = new AnimatorDAGRecord(0,0,0, 0, 1,1,1);
     // Create max key
     PVector pos = adagr.getUsedPosition();
     float r = adagr.getUsedRotation();
     PVector scale = adagr.getUsedScale();
-    AnimatorDAGRecord key2 = new AnimatorDAGRecord(pos.x, pos.y, pos.z,  r,  scale.x, scale.y, scale.z,  0,0,0);
+    AnimatorDAGRecord key2 = new AnimatorDAGRecord(pos.x, pos.y, pos.z,  r,  scale.x, scale.y, scale.z);
     // Make slider
     makeSlider(adagr, key1, key2);
   }

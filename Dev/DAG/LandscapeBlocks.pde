@@ -1,6 +1,6 @@
 class LandscapeBlocks
 {
-  private ArrayList nodes, nodesFilled;
+  private ArrayList nodes, nodesFilled, nodesFilledCorners;
   private float startX, startY, endX, endY, step;
   private float noiseScale, nstep;
   Story story;
@@ -9,6 +9,7 @@ class LandscapeBlocks
   {
     nodes = new ArrayList();
     nodesFilled = new ArrayList();
+    nodesFilledCorners = new ArrayList();
     this.startX = startX;
     this.startY = startY;
     this.endX = endX;
@@ -91,7 +92,7 @@ class LandscapeBlocks
   {
     if( !nodesFilled.contains(d) )
     {
-      nodesFilled.add(d);
+      registerFilledNode(d);
     }
   }
   // setNodeFilled
@@ -101,10 +102,43 @@ class LandscapeBlocks
   {
     if( nodesFilled.contains(d) )
     {
-      nodesFilled.remove(d);
+      deRegisterFilledNode(d);
     }
   }
   // setNodeFilled
+  
+  
+  private void registerFilledNode(DAGTransform dag)
+  // Takes care of associated corner data
+  {
+    // Basic registry
+    nodesFilled.add(dag);
+    
+    // Build and register a corner list
+    PVector pos = dag.getWorldPosition();
+    DAGTransform dag01 = getNearestNode(pos.x, pos.y + step);
+    DAGTransform dag10 = getNearestNode(pos.x + step, pos.y);
+    DAGTransform dag11 = getNearestNode(pos.x + step, pos.y + step);
+    
+    ArrayList list = new ArrayList();
+    list.add( dag );
+    list.add( dag10 );
+    list.add( dag11 );
+    list.add( dag01 );
+    nodesFilledCorners.add(list);
+  }
+  // registerFilledNode
+  
+  private void deRegisterFilledNode(DAGTransform dag)
+  {
+    int index = nodesFilled.indexOf(dag);
+    if(-1 < index)
+    {
+      nodesFilled.remove(index);
+      nodesFilledCorners.remove(index);
+    }
+  }
+  // deRegisterFilledNode
   
   
   private void setupField()
@@ -120,7 +154,7 @@ class LandscapeBlocks
         
         // Create and position node
         // This is an ADAGR because we can't directly slide a DAG
-        AnimatorDAGRecord node = new AnimatorDAGRecord(pos0.x, pos0.y, pos0.z,  0,  1,1,1,  0,0,0);
+        AnimatorDAGRecord node = new AnimatorDAGRecord(pos0.x, pos0.y, pos0.z,  0,  1,1,1);
         node.usePX = true;  node.usePY = true;  node.usePZ = true;  node.useR = true;  // This needs to be set
         nodes.add(node);
         
@@ -152,9 +186,9 @@ class LandscapeBlocks
         float dAng = (dAng00 + dAng01 + dAng10 + dAng11) / 4.0;
         
         // Create slider to alter position and rotation
-        AnimatorDAGRecord key1 = new AnimatorDAGRecord(pos0.x, pos0.y, pos0.z,  0,  1,1,1,  0,0,0);     // Rest
+        AnimatorDAGRecord key1 = new AnimatorDAGRecord(pos0.x, pos0.y, pos0.z,  0,  1,1,1);     // Rest
         key1.usePX = true;  key1.usePY = true;  key1.usePZ = true;  key1.useR = true;
-        AnimatorDAGRecord key2 = new AnimatorDAGRecord(pos1.x, pos1.y, pos1.z,  dAng,  1,1,1,  0,0,0);  // Noise
+        AnimatorDAGRecord key2 = new AnimatorDAGRecord(pos1.x, pos1.y, pos1.z,  dAng,  1,1,1);  // Noise
         key2.usePX = true;  key2.usePY = true;  key2.usePZ = true;  key2.useR = true;
         story.makeSlider(node, key1, key2);
       }
@@ -186,34 +220,8 @@ class LandscapeBlocks
   public ArrayList getCornersFromNode(DAGTransform dag)
   // Gets corners for a square with upper left corner "dag"
   {
-    int xLen = floor( (endX - startX) / step );
-    int yLen = floor( (endY - startY) / step );
-    int dagIndex = nodes.indexOf(dag);
-    int dag10 = dagIndex + 1;
-    int dag01 = dagIndex + xLen;
-    int dag11 = dagIndex + xLen + 1;
-    
-    // Sanitise
-    dag10 = constrain(dag10, 0, nodes.size() - 1);
-    dag01 = constrain(dag01, 0, nodes.size() - 1);
-    dag11 = constrain(dag11, 0, nodes.size() - 1);
-    // On too-distant connections, collapse to a point
-    DAGTransform dagRight = (DAGTransform) nodes.get(dag10);
-    DAGTransform dagBelow = (DAGTransform) nodes.get(dag01);
-    float threshold = step * 4.0;
-    PVector dagPos = dag.getWorldPosition();
-    if( threshold < dagPos.dist( dagRight.getWorldPosition() )  ||  threshold < dagPos.dist( dagBelow.getWorldPosition() ) )
-    {
-      dag01 = dagIndex;
-      dag10 = dagIndex;
-      dag11 = dagIndex;
-    }
-    
-    ArrayList list = new ArrayList();
-    list.add( dag );
-    list.add( nodes.get(dag10) );
-    list.add( nodes.get(dag11) );
-    list.add( nodes.get(dag01) );
+    int index = nodesFilled.indexOf(dag);
+    ArrayList list = (ArrayList) nodesFilledCorners.get(index);
     
     return( list );
   }

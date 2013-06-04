@@ -33,6 +33,7 @@ Story story;
 PGraphics pgNull;
 
 
+
 void setup()
 {
   size(1024, 768, P2D);
@@ -51,7 +52,7 @@ void setup()
 
 void draw()
 {
-  background(255);
+  noStroke();
   
   // Start percentile coordinates
   pushMatrix();
@@ -62,8 +63,8 @@ void draw()
   // Manage story
   story.run();
   
-  
-  // Render dags
+  /*
+  // Debug dags
   noStroke();
   fill(127);
   ArrayList dags = story.dagWorld.getAllDags();
@@ -80,31 +81,7 @@ void draw()
     //image(pgNull, 0,0, 2,2);
     popMatrix();
   }
-  
-  
-  // Render terrain
-  ArrayList filledLandscape = story.landscape.getFilledNodes();
-  fill(0,64);
-  i = filledLandscape.iterator();
-  while( i.hasNext() )
-  {
-    DAGTransform d = (DAGTransform) i.next();
-    ArrayList corners = story.landscape.getCornersFromNode(d);
-    
-    // Render fill
-    beginShape();
-    PVector v0 = ( (DAGTransform)corners.get(0) ).getWorldPosition();
-    PVector v1 = ( (DAGTransform)corners.get(1) ).getWorldPosition();
-    PVector v2 = ( (DAGTransform)corners.get(2) ).getWorldPosition();
-    PVector v3 = ( (DAGTransform)corners.get(3) ).getWorldPosition();
-    vertex(v0.x, v0.y);
-    vertex(v1.x, v1.y);
-    vertex(v2.x, v2.y);
-    vertex(v3.x, v3.y);
-    vertex(v0.x, v0.y);
-    endShape();
-  }
-  
+  */
   
   // End percentile coordinates
   popMatrix();
@@ -136,13 +113,16 @@ void keyPressed()
   if(key == '+'  ||  key == '=')
   {
     // Increase story eccentricity slider
-    story.slide(1.0/60);
+    story.slide(1.0/180);
   }
   
   if(key == '-')
   {
     // Increase story eccentricity slider
-    story.slide(-1.0/60);
+    story.slide(-1.0/180);
   }
+  
+  if(key == '[')  story.command(201);
+  if(key == ']')  story.command(200);
 }
 // keyPressed

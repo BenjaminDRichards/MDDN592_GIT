@@ -5,10 +5,9 @@ class AnimatorDAGRecord extends DAGTransform
   
   AnimatorDAGRecord(float wpX, float wpY, float wpZ,
                     float wr,
-                    float wsX, float wsY, float wsZ,
-                    float cX, float cY, float cZ)
+                    float wsX, float wsY, float wsZ)
   {
-    super(wpX, wpY, wpZ, wr, wsX, wsY, wsZ, cX, cY, cZ);
+    super(wpX, wpY, wpZ, wr, wsX, wsY, wsZ);
     useWorldSpace = false;
     usePX = false;    usePY = false;    usePZ = false;
     useR = false;
